@@ -1,6 +1,8 @@
 use std::fmt::Write;
 use std::str::FromStr;
 
+const INVALID_INPUT: &str = "Invalid input.";
+
 #[derive(Debug, Clone)]
 pub struct CliOption {
     pub text: String,
@@ -67,7 +69,7 @@ impl Menu {
                 println!("{}", self.menu_type.bye_msg());
                 break;
             } else {
-                print_invalid_input()
+                println!("{}", INVALID_INPUT);
             }
         }
     }
@@ -89,24 +91,46 @@ impl Default for Menu {
     }
 }
 
-fn print_invalid_input() {
-    println!("Invalid input.");
-}
-
+// Inspiration: https://stackoverflow.com/questions/28370126/how-can-i-test-stdin-and-stdout
 pub fn parse_std_in<R, W, T>(mut reader: R, mut writer: W, prompt: &str) -> T
 where
     R: std::io::BufRead,
     W: std::io::Write,
     T: FromStr,
 {
-    let mut line;
+    let mut line: String;
     loop {
         write!(&mut writer, "{}\n", prompt).unwrap();
         line = String::new();
         reader.read_line(&mut line).unwrap();
         match line.trim().parse::<T>() {
             Ok(x) => return x,
-            Err(..) => print_invalid_input(),
+            Err(..) => write!(&mut writer, "{}\n", INVALID_INPUT).unwrap(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_i32_like_a_champ() {
+        let input = b"3";
+        let mut output = Vec::new();
+        let actual: i32 = parse_std_in(&input[..], &mut output, "i32 plz");
+        assert_eq!(actual, 3);
+        let expected_output = "i32 plz\n";
+        assert_eq!(expected_output, String::from_utf8(output).unwrap());
+    }
+
+    #[test]
+    fn parses_i32_on_2nd_try() {
+        let input = b"sup\n8\n9";
+        let mut output = Vec::new();
+        let actual: i32 = parse_std_in(&input[..], &mut output, "i32 plz");
+        assert_eq!(actual, 8);
+        let expected_output = "i32 plz\nInvalid input.\ni32 plz\n";
+        assert_eq!(expected_output, String::from_utf8(output).unwrap());
     }
 }
